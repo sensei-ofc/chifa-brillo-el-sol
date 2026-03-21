@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile data",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user", "guest"] },
+        "points": { "type": "number" },
+        "rank": { "type": "string" },
+        "examsCompleted": { "type": "number" },
+        "accuracy": { "type": "number" },
+        "achievements": { "type": "array", "items": { "type": "string" } },
+        "currentStreak": { "type": "number" },
+        "bestStreak": { "type": "number" },
+        "perfectExams": { "type": "number" },
+        "bestTime": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role", "points", "rank", "createdAt"]
+    },
+    "QuizAttempt": {
+      "title": "QuizAttempt",
+      "description": "A record of a completed quiz",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "score": { "type": "number" },
+        "totalQuestions": { "type": "number" },
+        "correctAnswers": { "type": "number" },
+        "timeTaken": { "type": "number" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["userId", "score", "totalQuestions", "correctAnswers", "timeTaken", "timestamp"]
+    },
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "A dish or item on the menu",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["name", "description", "price", "category"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "/menu/{itemId}": {
+      "schema": { "$ref": "#/entities/MenuItem" },
+      "description": "Menu items"
+    },
+    "/quizzes/{quizId}": {
+      "schema": { "$ref": "#/entities/QuizAttempt" },
+      "description": "Quiz attempts history"
+    }
+  }
+}
