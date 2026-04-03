@@ -5,6 +5,7 @@ import { PremiumCard } from '../components/ui/PremiumCard';
 import { Button } from '../components/ui/Button';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
+import { CONFIG } from '../config';
 import { Trophy, Star, Clock, BookOpen, User } from 'lucide-react';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -66,12 +67,12 @@ export function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col">
           <div className="flex items-center gap-3 mb-2 flex-wrap">
-            <h1 className="font-heading text-2xl md:text-4xl font-bold break-words">
+            <h1 className="font-heading text-2xl md:text-4xl font-bold break-words uppercase">
               HOLA, <span className="gold-text">{profile?.displayName || user?.displayName || 'Invitado'}</span>
             </h1>
             {userRole === 'admin' && (
               <span className="px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full border bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shrink-0">
-                {user?.email === 'qmisael386@gmail.com' ? 'CREADOR SUPREMO' : 'CREADOR'}
+                {user?.email === CONFIG.creator.email ? 'CREADOR' : 'ADMIN'}
               </span>
             )}
           </div>

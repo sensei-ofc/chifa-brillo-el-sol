@@ -1,15 +1,16 @@
-import { useRef, useState, ChangeEvent } from 'react';
+import { useRef, useState, ChangeEvent, useEffect } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { PremiumCard } from '../components/ui/PremiumCard';
 import { Button } from '../components/ui/Button';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
 import { useToastStore } from '../store/useToastStore';
-import { Download, Share2, Award, Shield, User as UserIcon, Camera, Edit2, Save, X, Lock, Mail, Nfc, QrCode, ChevronRight, CheckCircle2, Star } from 'lucide-react';
+import { CONFIG } from '../config';
+import { Download, Share2, Award, Shield, User as UserIcon, Camera, Edit2, Save, X, Lock, Mail, Nfc, QrCode, ChevronRight, CheckCircle2, Star, Trophy } from 'lucide-react';
 import { toJpeg } from 'html-to-image';
 import { updateProfile, updateEmail, updatePassword } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { auth, db, storage } from '../services/firebase';
 import { RANKS, getRankByPoints, ACHIEVEMENTS } from '../constants/gameData';
 import { GuestBlocker } from '../components/auth/GuestBlocker';
@@ -20,6 +21,89 @@ export function ProfilePage() {
   const { addToast } = useToastStore();
   const credentialRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [userRankPosition, setUserRankPosition] = useState<number | null>(null);
+  const [logoDataUrl, setLogoDataUrl] = useState<string>(CONFIG.brand.logo);
+  const [avatarDataUrl, setAvatarDataUrl] = useState<string>('');
+
+  useEffect(() => {
+    // Fetch logo and convert to base64 to avoid CORS issues with html-to-image
+    const fetchLogo = async () => {
+      try {
+        // Using corsproxy.io as a more reliable alternative
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(CONFIG.brand.logo)}`;
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setLogoDataUrl(reader.result as string);
+        };
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error("Error fetching logo for credential:", error);
+        // Fallback to original URL if proxy fails, though it might cause CORS issues on download
+        setLogoDataUrl(CONFIG.brand.logo);
+      }
+    };
+    fetchLogo();
+  }, []);
+
+  useEffect(() => {
+    // Fetch avatar and convert to base64
+    const fetchAvatar = async () => {
+      if (!profile?.photoURL) return;
+      try {
+        // Firebase storage URLs usually have CORS enabled, but just in case
+        const response = await fetch(profile.photoURL);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setAvatarDataUrl(reader.result as string);
+        };
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error("Error fetching avatar for credential:", error);
+        // Fallback to proxy if direct fetch fails
+        try {
+          const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(profile.photoURL)}`;
+          const response = await fetch(proxyUrl);
+          if (!response.ok) throw new Error('Network response was not ok');
+          const blob = await response.blob();
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setAvatarDataUrl(reader.result as string);
+          };
+          reader.readAsDataURL(blob);
+        } catch (e) {
+          console.error("Error fetching avatar via proxy:", e);
+          // Fallback to original URL
+          setAvatarDataUrl(profile.photoURL);
+        }
+      }
+    };
+    fetchAvatar();
+  }, [profile?.photoURL]);
+
+  useEffect(() => {
+    const fetchRanking = async () => {
+      if (!user) return;
+      try {
+        const q = query(collection(db, 'users'), orderBy('points', 'desc'));
+        const snapshot = await getDocs(q);
+        const users = snapshot.docs.map(doc => doc.id);
+        const position = users.indexOf(user.uid) + 1;
+        if (position > 0) {
+          setUserRankPosition(position);
+        }
+      } catch (error) {
+        console.error("Error fetching ranking position:", error);
+      }
+    };
+
+    fetchRanking();
+  }, [user]);
 
   if (userRole === 'guest') {
     return (
@@ -32,17 +116,77 @@ export function ProfilePage() {
     );
   }
 
-  const [isEditingName, setIsEditingName] = useState(false);
+  const isGoogleUser = auth.currentUser?.providerData.some(p => p.providerId === 'google.com');
+
+  const [isEditingAll, setIsEditingAll] = useState(false);
   const [newName, setNewName] = useState(profile?.displayName || '');
-  
-  const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState(profile?.email || '');
-  
-  const [isEditingPassword, setIsEditingPassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
   const [loading, setLoading] = useState(false);
+
+  const handleSaveAll = async () => {
+    if (!auth.currentUser) return;
+    setLoading(true);
+    
+    try {
+      const updates: Promise<any>[] = [];
+      const firestoreUpdates: any = {};
+
+      // Name update
+      if (newName.trim() && newName !== profile?.displayName) {
+        updates.push(updateProfile(auth.currentUser, { displayName: newName }));
+        firestoreUpdates.displayName = newName;
+      }
+
+      // Email update (only if not Google)
+      if (!isGoogleUser && newEmail.trim() && newEmail !== profile?.email) {
+        updates.push(updateEmail(auth.currentUser, newEmail));
+        firestoreUpdates.email = newEmail;
+      }
+
+      // Password update
+      if (newPassword) {
+        if (newPassword !== confirmPassword) {
+          addToast('Las contraseñas no coinciden.', 'error');
+          setLoading(false);
+          return;
+        }
+        if (newPassword.length < 6) {
+          addToast('La contraseña debe tener al menos 6 caracteres.', 'error');
+          setLoading(false);
+          return;
+        }
+        updates.push(updatePassword(auth.currentUser, newPassword));
+      }
+
+      if (Object.keys(firestoreUpdates).length > 0) {
+        updates.push(updateDoc(doc(db, 'users', auth.currentUser.uid), firestoreUpdates));
+      }
+
+      if (updates.length > 0) {
+        await Promise.all(updates);
+        if (profile) {
+          setProfile({ ...profile, ...firestoreUpdates });
+        }
+        addToast('Perfil actualizado con éxito.', 'success');
+      }
+      
+      setIsEditingAll(false);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      if (error.code === 'auth/requires-recent-login') {
+        addToast('Esta operación requiere un inicio de sesión reciente. Por favor, cierra sesión e ingresa de nuevo.', 'error');
+      } else {
+        addToast('Error al actualizar el perfil.', 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDownload = async () => {
     if (!credentialRef.current) return;
@@ -87,102 +231,6 @@ export function ProfilePage() {
     } catch (error) {
       console.error('Error sharing credential:', error);
       addToast('Error al compartir la credencial.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const isGoogleUser = auth.currentUser?.providerData.some(p => p.providerId === 'google.com');
-
-  const handleUpdateName = async () => {
-    if (!auth.currentUser || !newName.trim() || newName === profile?.displayName) {
-      setIsEditingName(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await updateProfile(auth.currentUser, { displayName: newName });
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), { displayName: newName });
-      
-      if (profile) {
-        setProfile({ ...profile, displayName: newName });
-      }
-      
-      addToast('Nombre actualizado correctamente.', 'success');
-      setIsEditingName(false);
-    } catch (error: any) {
-      console.error('Error updating name:', error);
-      addToast('Error al actualizar el nombre.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateEmail = async () => {
-    if (isGoogleUser) {
-      addToast('El correo de una cuenta de Google no se puede cambiar desde aquí.', 'error');
-      setIsEditingEmail(false);
-      return;
-    }
-    if (!auth.currentUser || !newEmail.trim() || newEmail === profile?.email) {
-      setIsEditingEmail(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await updateEmail(auth.currentUser, newEmail);
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), { email: newEmail });
-      
-      if (profile) {
-        setProfile({ ...profile, email: newEmail });
-      }
-      
-      addToast('Correo actualizado correctamente.', 'success');
-      setIsEditingEmail(false);
-    } catch (error: any) {
-      console.error('Error updating email:', error);
-      if (error.code === 'auth/requires-recent-login') {
-        addToast('Esta operación requiere un inicio de sesión reciente. Por favor, cierra sesión e ingresa de nuevo.', 'error');
-      } else {
-        addToast('Error al actualizar el correo.', 'error');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdatePassword = async () => {
-    if (!auth.currentUser || !newPassword) {
-      setIsEditingPassword(false);
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      addToast('Las contraseñas no coinciden.', 'error');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      addToast('La contraseña debe tener al menos 6 caracteres.', 'error');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await updatePassword(auth.currentUser, newPassword);
-      addToast('Contraseña configurada correctamente.', 'success');
-      setIsEditingPassword(false);
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (error: any) {
-      console.error('Error updating password:', error);
-      if (error.code === 'auth/requires-recent-login') {
-        addToast('Esta operación requiere un inicio de sesión reciente. Por favor, cierra sesión e ingresa de nuevo con Google para poder crear tu contraseña.', 'error');
-      } else {
-        addToast('Error al configurar la contraseña.', 'error');
-      }
     } finally {
       setLoading(false);
     }
@@ -235,57 +283,36 @@ export function ProfilePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         <div className="lg:col-span-1 space-y-6 md:space-y-8">
           {/* Digital Credential */}
-          <div className="relative group max-w-[380px] mx-auto lg:max-w-none w-full">
-            <div className="absolute -inset-1 bg-gradient-to-r from-gold-champagne via-dragon-red to-gold-champagne rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-1000 group-hover:duration-200"></div>
+          <div className="relative group max-w-[320px] mx-auto w-full">
+            <div className="absolute -inset-1 bg-gradient-to-b from-gold-champagne via-dragon-red to-gold-champagne rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-1000 group-hover:duration-200"></div>
             <div 
               ref={credentialRef}
-              className="relative bg-gradient-to-br from-[#1a1a1a] via-[#0a0a0a] to-[#050505] border border-gold-champagne/40 rounded-2xl p-6 overflow-hidden shadow-2xl aspect-[1.6/1] flex flex-col justify-between"
+              className="relative bg-gradient-to-b from-[#1a1a1a] via-[#0a0a0a] to-[#050505] border border-gold-champagne/40 rounded-2xl p-6 overflow-hidden shadow-2xl aspect-[1/1.6] flex flex-col items-center text-center"
             >
               {/* Watermark Logo */}
-              <div className="absolute -right-12 -bottom-12 w-64 h-64 opacity-5 pointer-events-none">
-                <img src="https://e.top4top.io/p_372983lw41.jpg" alt="Watermark" className="w-full h-full object-cover rounded-full" crossOrigin="anonymous" referrerPolicy="no-referrer" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 opacity-5 pointer-events-none">
+                <img src={logoDataUrl} alt="Watermark" className="w-full h-full object-cover rounded-full" />
               </div>
 
               {/* Top Header */}
-              <div className="flex justify-between items-start relative z-10">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full overflow-hidden border border-gold-champagne/50 shadow-[0_0_10px_rgba(212,175,55,0.3)]">
-                    <img src="https://e.top4top.io/p_372983lw41.jpg" alt="Logo" className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading text-sm font-bold text-white leading-tight">CHIFA<br/><span className="text-gold-champagne">BRILLO EL SOL</span></h3>
-                  </div>
+              <div className="w-full flex flex-col items-center relative z-10 mb-6">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gold-champagne shadow-[0_0_15px_rgba(212,175,55,0.4)] bg-black mb-3">
+                  <img src={logoDataUrl} alt="Logo" className="w-full h-full object-cover" />
                 </div>
-                <div className="text-right">
-                  <p className="font-mono text-[8px] text-gold-champagne uppercase tracking-[0.2em]">Elite Staff</p>
-                  <Nfc className="w-5 h-5 text-gold-champagne/70 ml-auto mt-1" />
-                </div>
+                <h3 className="font-heading text-sm font-bold text-white leading-tight uppercase tracking-widest">
+                  {CONFIG.brand.name.split(' ').slice(0, 1)} <span className="text-gold-champagne">{CONFIG.brand.name.split(' ').slice(1).join(' ')}</span>
+                </h3>
+                <p className="font-mono text-[8px] text-gold-champagne uppercase tracking-[0.3em] mt-1">Elite Staff</p>
               </div>
 
-              {/* Middle Section: Chip & User */}
-              <div className="flex items-center space-x-4 relative z-10 mt-4">
-                <div className="w-12 h-9 rounded bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600 opacity-80 border border-yellow-300/50 flex items-center justify-center overflow-hidden shrink-0">
-                   <div className="w-full h-full border-[0.5px] border-black/20 grid grid-cols-3 grid-rows-3 gap-[1px] opacity-50">
-                      {[...Array(9)].map((_, i) => <div key={i} className="border-[0.5px] border-black/20"></div>)}
-                   </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-mono text-[8px] text-gray-400 uppercase tracking-widest mb-0.5">ID: {user?.uid?.substring(0, 10).toUpperCase() || 'GUEST-01'}</p>
-                  <h2 className="font-heading text-xl font-bold text-white uppercase tracking-wide truncate drop-shadow-md">
-                    {profile?.displayName || 'Invitado'}
-                  </h2>
-                  <p className="text-gold-champagne text-[10px] font-mono uppercase tracking-widest truncate">
-                    {profile?.role === 'admin' ? 'Administrador' : 'Staff'} • {profile?.rank || 'APRENDIZ'}
-                  </p>
-                </div>
-                
-                {/* Avatar */}
-                <div className="w-16 h-16 rounded-full bg-gold-champagne/20 border-2 border-gold-champagne p-0.5 relative group/avatar shrink-0">
+              {/* Avatar */}
+              <div className="relative z-10 mb-4">
+                <div className="w-28 h-28 rounded-full bg-gold-champagne/20 border-2 border-gold-champagne p-1 relative group/avatar mx-auto shadow-[0_0_20px_rgba(212,175,55,0.2)]">
                   <div className="w-full h-full rounded-full overflow-hidden bg-gray-900">
                     {profile?.photoURL ? (
-                      <img src={profile.photoURL} alt="Avatar" className="w-full h-full object-cover" crossOrigin="anonymous" />
+                      <img src={avatarDataUrl || profile.photoURL} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gold-champagne text-2xl font-bold">
+                      <div className="w-full h-full flex items-center justify-center text-gold-champagne text-4xl font-bold">
                         {profile?.displayName?.charAt(0) || 'I'}
                       </div>
                     )}
@@ -296,7 +323,7 @@ export function ProfilePage() {
                     disabled={loading}
                     className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover/avatar:opacity-100 transition-opacity cursor-pointer"
                   >
-                    <Camera className="w-4 h-4 text-white" />
+                    <Camera className="w-6 h-6 text-white" />
                   </button>
                   
                   <input 
@@ -309,9 +336,29 @@ export function ProfilePage() {
                 </div>
               </div>
 
+              {/* User Info */}
+              <div className="w-full relative z-10 flex-1 flex flex-col items-center justify-center">
+                <h2 className="font-heading text-2xl font-bold text-white uppercase tracking-wider drop-shadow-md mb-1">
+                  {profile?.displayName || 'Invitado'}
+                </h2>
+                <p className="text-gold-champagne text-xs font-mono uppercase tracking-widest mb-3">
+                  {profile?.email === CONFIG.creator.email ? 'CREADOR' : (profile?.role === 'admin' ? 'ADMIN' : 'STAFF')} • {profile?.rank || 'APRENDIZ'}
+                </p>
+                <div className="flex items-center justify-center space-x-3 mb-2">
+                  <Nfc className="w-5 h-5 text-gold-champagne/70" />
+                  {userRankPosition && (
+                    <div className="flex items-center bg-gold-champagne/10 border border-gold-champagne/30 px-2 py-1 rounded-full">
+                      <Trophy className="w-3 h-3 text-gold-champagne mr-1" />
+                      <span className="text-[10px] font-mono font-bold text-gold-champagne">TOP {userRankPosition}</span>
+                    </div>
+                  )}
+                </div>
+                <p className="font-mono text-[9px] text-gray-400 uppercase tracking-widest">ID: {user?.uid?.substring(0, 10).toUpperCase() || 'GUEST-01'}</p>
+              </div>
+
               {/* Bottom Section */}
-              <div className="flex justify-between items-end relative z-10 mt-4">
-                <div className="flex space-x-6">
+              <div className="w-full flex justify-between items-end relative z-10 mt-auto pt-4 border-t border-gold-champagne/20">
+                <div className="flex space-x-6 text-left">
                   <div>
                     <p className="text-[8px] text-gray-500 font-mono uppercase tracking-widest mb-0.5">Puntos</p>
                     <p className="font-mono text-sm font-bold text-white">{profile?.points || 0}</p>
@@ -328,7 +375,7 @@ export function ProfilePage() {
             </div>
           </div>
 
-          <div className="flex gap-4 mt-6 max-w-[380px] mx-auto lg:max-w-none">
+          <div className="flex gap-4 mt-6 max-w-[320px] mx-auto w-full">
             <Button onClick={handleDownload} disabled={loading} variant="outline" className="flex-1 text-[10px] sm:text-xs md:text-sm py-2">
               <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" /> Descargar
             </Button>
@@ -456,38 +503,96 @@ export function ProfilePage() {
             </div>
           </PremiumCard>
 
-          <PremiumCard className="p-5 sm:p-6 md:p-8">
-            <h2 className="font-heading text-base sm:text-lg md:text-xl font-bold flex items-center mb-6">
-              <UserIcon className="w-5 h-5 mr-2 text-gold-champagne" />
-              DATOS PERSONALES
-            </h2>
-            <div className="space-y-6">
+          <PremiumCard className="p-5 sm:p-6 md:p-8 relative overflow-hidden">
+            {/* Background Logo Watermark */}
+            <div className="absolute -right-10 -top-10 w-40 h-40 opacity-10 pointer-events-none rotate-12">
+              <img src={CONFIG.brand.logo} alt="" className="w-full h-full object-cover rounded-full" />
+            </div>
+
+            <div className="flex justify-between items-center mb-6 relative z-10">
+              <div className="flex items-center">
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-gold-champagne/30 mr-3 shrink-0">
+                  <img src={CONFIG.brand.logo} alt="Logo" className="w-full h-full object-cover" />
+                </div>
+                <h2 className="font-heading text-base sm:text-lg md:text-xl font-bold flex items-center">
+                  <UserIcon className="w-5 h-5 mr-2 text-gold-champagne" />
+                  DATOS PERSONALES
+                </h2>
+              </div>
+              
+              {!isEditingAll ? (
+                <Button 
+                  onClick={() => setIsEditingAll(true)} 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-[10px] h-8 border-gold-champagne/30 text-gold-champagne hover:bg-gold-champagne/10"
+                >
+                  <Edit2 className="w-3 h-3 mr-1" /> EDITAR TODO
+                </Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleSaveAll} 
+                    disabled={loading}
+                    variant="outline" 
+                    size="sm" 
+                    className="text-[10px] h-8 border-emerald-500/50 text-emerald-500 hover:bg-emerald-500/10"
+                  >
+                    <Save className="w-3 h-3 mr-1" /> {loading ? '...' : 'GUARDAR'}
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setIsEditingAll(false);
+                      setNewName(profile?.displayName || '');
+                      setNewEmail(profile?.email || '');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                    }} 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-[10px] h-8 border-red-500/50 text-red-500 hover:bg-red-500/10"
+                  >
+                    <X className="w-3 h-3 mr-1" /> CANCELAR
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6 relative z-10">
+              {/* Photo Edit Section */}
+              {isEditingAll && (
+                <div className="flex flex-col items-center pb-4 border-b border-white/5">
+                  <div className="relative group/edit-avatar mb-3">
+                    <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-gold-champagne p-0.5 bg-gray-900">
+                      {profile?.photoURL ? (
+                        <img src={profile.photoURL} alt="Avatar" className="w-full h-full object-cover rounded-full" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gold-champagne text-3xl font-bold">
+                          {profile?.displayName?.charAt(0) || 'I'}
+                        </div>
+                      )}
+                    </div>
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-0 right-0 w-8 h-8 bg-gold-champagne text-ebony-dark rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-[10px] font-mono text-gold-champagne uppercase tracking-widest">Cambiar Foto de Perfil</p>
+                </div>
+              )}
+
               {/* Name Field */}
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-[8px] sm:text-[10px] font-mono text-gray-500 uppercase tracking-widest">Nombre Completo</label>
-                  {!isEditingName ? (
-                    <button onClick={() => setIsEditingName(true)} className="text-gold-champagne hover:text-gold-champagne/80 text-[10px] flex items-center">
-                      <Edit2 className="w-3 h-3 mr-1" /> Editar
-                    </button>
-                  ) : (
-                    <div className="flex space-x-2">
-                      <button onClick={handleUpdateName} disabled={loading} className="text-green-500 hover:text-green-400 text-[10px] flex items-center">
-                        <Save className="w-3 h-3 mr-1" /> Guardar
-                      </button>
-                      <button onClick={() => { setIsEditingName(false); setNewName(profile?.displayName || ''); }} className="text-red-500 hover:text-red-400 text-[10px] flex items-center">
-                        <X className="w-3 h-3 mr-1" /> Cancelar
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {isEditingName ? (
+                <label className="block text-[8px] sm:text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-2">Nombre Completo</label>
+                {isEditingAll ? (
                   <input 
                     type="text" 
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     className="w-full p-2.5 sm:p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-gold-champagne/30 focus:border-gold-champagne outline-none text-xs sm:text-sm md:text-base"
-                    placeholder="Nuevo nombre"
+                    placeholder="Tu nombre imperial"
                   />
                 ) : (
                   <div className="p-2.5 sm:p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-black/5 dark:border-white/10 font-medium text-xs sm:text-sm md:text-base">
@@ -498,28 +603,8 @@ export function ProfilePage() {
 
               {/* Email Field */}
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-[8px] sm:text-[10px] font-mono text-gray-500 uppercase tracking-widest">Correo Electrónico</label>
-                  {!isEditingEmail ? (
-                    !isGoogleUser ? (
-                      <button onClick={() => setIsEditingEmail(true)} className="text-gold-champagne hover:text-gold-champagne/80 text-[10px] flex items-center">
-                        <Edit2 className="w-3 h-3 mr-1" /> Editar
-                      </button>
-                    ) : (
-                      <span className="text-gray-500 text-[8px] font-mono uppercase">Gestionado por Google</span>
-                    )
-                  ) : (
-                    <div className="flex space-x-2">
-                      <button onClick={handleUpdateEmail} disabled={loading} className="text-green-500 hover:text-green-400 text-[10px] flex items-center">
-                        <Save className="w-3 h-3 mr-1" /> Guardar
-                      </button>
-                      <button onClick={() => { setIsEditingEmail(false); setNewEmail(profile?.email || ''); }} className="text-red-500 hover:text-red-400 text-[10px] flex items-center">
-                        <X className="w-3 h-3 mr-1" /> Cancelar
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {isEditingEmail ? (
+                <label className="block text-[8px] sm:text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-2">Correo Electrónico</label>
+                {isEditingAll && !isGoogleUser ? (
                   <input 
                     type="email" 
                     value={newEmail}
@@ -528,57 +613,46 @@ export function ProfilePage() {
                     placeholder="Nuevo correo"
                   />
                 ) : (
-                  <div className="p-2.5 sm:p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-black/5 dark:border-white/10 font-medium text-xs sm:text-sm md:text-base text-gray-500 truncate">
-                    {profile?.email || 'No disponible'}
+                  <div className="p-2.5 sm:p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-black/5 dark:border-white/10 font-medium text-xs sm:text-sm md:text-base text-gray-500 truncate flex justify-between items-center">
+                    <span>{profile?.email || 'No disponible'}</span>
+                    {isGoogleUser && <span className="text-[8px] font-mono uppercase opacity-50">Google Auth</span>}
                   </div>
                 )}
               </div>
 
-              {/* Password Field */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-[8px] sm:text-[10px] font-mono text-gray-500 uppercase tracking-widest">Seguridad</label>
-                  {!isEditingPassword ? (
-                    <button onClick={() => setIsEditingPassword(true)} className="text-gold-champagne hover:text-gold-champagne/80 text-[10px] flex items-center">
-                      <Lock className="w-3 h-3 mr-1" /> {isGoogleUser && !auth.currentUser?.providerData.some(p => p.providerId === 'password') ? 'Crear Contraseña' : 'Cambiar Contraseña'}
-                    </button>
+              {/* Password Section (Only if editing or if user wants to see status) */}
+              {(isEditingAll || (!isGoogleUser || auth.currentUser?.providerData.some(p => p.providerId === 'password'))) && (
+                <div>
+                  <label className="block text-[8px] sm:text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-2">Seguridad</label>
+                  {isEditingAll ? (
+                    <div className="space-y-3">
+                      <input 
+                        type="password" 
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full p-2.5 sm:p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-gold-champagne/30 focus:border-gold-champagne outline-none text-xs sm:text-sm md:text-base"
+                        placeholder="Nueva contraseña (dejar en blanco para no cambiar)"
+                      />
+                      {newPassword && (
+                        <input 
+                          type="password" 
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="w-full p-2.5 sm:p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-gold-champagne/30 focus:border-gold-champagne outline-none text-xs sm:text-sm md:text-base"
+                          placeholder="Confirmar nueva contraseña"
+                        />
+                      )}
+                    </div>
                   ) : (
-                    <div className="flex space-x-2">
-                      <button onClick={handleUpdatePassword} disabled={loading} className="text-green-500 hover:text-green-400 text-[10px] flex items-center">
-                        <Save className="w-3 h-3 mr-1" /> Guardar
-                      </button>
-                      <button onClick={() => { setIsEditingPassword(false); setNewPassword(''); setConfirmPassword(''); }} className="text-red-500 hover:text-red-400 text-[10px] flex items-center">
-                        <X className="w-3 h-3 mr-1" /> Cancelar
-                      </button>
+                    <div className="p-2.5 sm:p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-black/5 dark:border-white/10 font-medium text-xs sm:text-sm md:text-base text-gray-500 flex justify-between items-center">
+                      <span>••••••••••••</span>
+                      {isGoogleUser && !auth.currentUser?.providerData.some(p => p.providerId === 'password') && (
+                        <span className="text-[10px] text-dragon-red font-mono uppercase">Sin contraseña configurada</span>
+                      )}
                     </div>
                   )}
                 </div>
-                {isEditingPassword ? (
-                  <div className="space-y-3">
-                    <input 
-                      type="password" 
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full p-2.5 sm:p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-gold-champagne/30 focus:border-gold-champagne outline-none text-xs sm:text-sm md:text-base"
-                      placeholder="Nueva contraseña"
-                    />
-                    <input 
-                      type="password" 
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full p-2.5 sm:p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-gold-champagne/30 focus:border-gold-champagne outline-none text-xs sm:text-sm md:text-base"
-                      placeholder="Confirmar contraseña"
-                    />
-                  </div>
-                ) : (
-                  <div className="p-2.5 sm:p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-black/5 dark:border-white/10 font-medium text-xs sm:text-sm md:text-base text-gray-500 flex justify-between items-center">
-                    <span>••••••••••••</span>
-                    {isGoogleUser && !auth.currentUser?.providerData.some(p => p.providerId === 'password') && (
-                      <span className="text-[10px] text-dragon-red font-mono uppercase">Sin contraseña configurada</span>
-                    )}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </PremiumCard>
         </div>

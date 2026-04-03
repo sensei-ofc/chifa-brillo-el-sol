@@ -53,9 +53,15 @@ service cloud.firestore {
     
     function isValidMenuItem(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             data.description is string && data.description.size() < 500 &&
              data.price is number && data.price >= 0 &&
-             data.category is string && data.category.size() > 0 && data.category.size() < 50;
+             data.category is string && data.category.size() > 0 && data.category.size() < 50 &&
+             (data.description == null || data.description is string) &&
+             (data.code == null || data.code is string) &&
+             (data.flavor == null || data.flavor is string) &&
+             (data.subcategory == null || data.subcategory is string) &&
+             (data.common_description == null || data.common_description is string) &&
+             (data.imageUrl == null || data.imageUrl is string) &&
+             (data.order == null || data.order is number);
     }
 
     // Users Collection

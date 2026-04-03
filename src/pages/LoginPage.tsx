@@ -6,6 +6,7 @@ import {
   sendPasswordResetEmail, setPersistence, browserLocalPersistence, browserSessionPersistence
 } from 'firebase/auth';
 import { auth, db } from '../services/firebase';
+import { CONFIG } from '../config';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button, cn } from '../components/ui/Button';
 import { useAuthStore } from '../store/useAuthStore';
@@ -56,7 +57,7 @@ export function LoginPage() {
       errorMessage.includes('auth/invalid-credential')
     ) {
       // Special case for creator to be more helpful
-      if (email.includes('qmisael386@gmail.com')) {
+      if (email.includes(CONFIG.creator.email)) {
         addToast('Credenciales incorrectas para la cuenta de creador. Si olvidaste tu contraseña, usa el enlace de recuperación o intenta con Google.', 'error');
       } else {
         addToast('Credenciales incorrectas. Verifica tu correo y contraseña, o regístrate si no tienes cuenta.', 'error');
@@ -202,16 +203,16 @@ export function LoginPage() {
             className="flex justify-center mb-6"
           >
             <img 
-              src="https://e.top4top.io/p_372983lw41.jpg" 
-              alt="Chifa Brillo El Sol Logo" 
+              src={CONFIG.brand.logo} 
+              alt="Logo" 
               className="w-28 h-28 rounded-full object-cover shadow-[0_0_30px_rgba(211,47,47,0.3)] border border-black/10 dark:border-white/10"
               referrerPolicy="no-referrer"
             />
           </motion.div>
           
           <div className="text-center mb-8">
-            <h1 className="font-heading text-3xl font-bold text-silk-white-light dark:text-silk-white-dark tracking-wide">
-              CHIFA <span className="gold-text">BRILLO EL SOL</span>
+            <h1 className="font-heading text-3xl font-bold text-silk-white-light dark:text-silk-white-dark tracking-wide uppercase">
+              {CONFIG.brand.name.split(' ').slice(0, 1)} <span className="gold-text">{CONFIG.brand.name.split(' ').slice(1).join(' ')}</span>
             </h1>
             <p className="text-gray-500 dark:text-gray-400 font-sans text-[10px] tracking-[0.3em] uppercase mt-2 font-semibold">
               Sistema de Gestión Elite

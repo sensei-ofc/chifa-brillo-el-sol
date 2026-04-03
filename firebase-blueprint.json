@@ -42,13 +42,18 @@
       "description": "A dish or item on the menu",
       "type": "object",
       "properties": {
+        "code": { "type": "string" },
         "name": { "type": "string" },
         "description": { "type": "string" },
+        "flavor": { "type": "string" },
         "price": { "type": "number" },
         "category": { "type": "string" },
-        "imageUrl": { "type": "string" }
+        "subcategory": { "type": "string" },
+        "common_description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "order": { "type": "number" }
       },
-      "required": ["name", "description", "price", "category"]
+      "required": ["name", "price", "category"]
     }
   },
   "firestore": {

@@ -381,18 +381,23 @@ export function QuizPage() {
   return (
     <PageWrapper className="max-w-3xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
-            <Brain className="w-8 h-8 mr-3 text-gold-champagne" />
-            CENTRO DE <span className="gold-text ml-2">EVALUACIÓN</span>
-          </h1>
-          <div className="flex items-center space-x-4 mt-1">
-            <p className="text-gray-400 text-[10px] md:text-xs font-mono uppercase tracking-widest">
-              Pregunta {currentQuestionIndex + 1} de {questions.length}
-            </p>
-            <div className="flex items-center text-gold-champagne/70 text-[10px] font-mono">
-              <Timer className="w-3 h-3 mr-1" />
-              {Math.floor((Date.now() - startTime) / 1000)}s
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gold-champagne shadow-[0_0_15px_rgba(212,175,55,0.3)] bg-black shrink-0">
+            <img src="https://e.top4top.io/p_372983lw41.jpg" alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
+              <Brain className="w-8 h-8 mr-3 text-gold-champagne" />
+              CENTRO DE <span className="gold-text ml-2">EVALUACIÓN</span>
+            </h1>
+            <div className="flex items-center space-x-4 mt-1">
+              <p className="text-gray-400 text-[10px] md:text-xs font-mono uppercase tracking-widest">
+                Pregunta {currentQuestionIndex + 1} de {questions.length}
+              </p>
+              <div className="flex items-center text-gold-champagne/70 text-[10px] font-mono">
+                <Timer className="w-3 h-3 mr-1" />
+                {Math.floor((Date.now() - startTime) / 1000)}s
+              </div>
             </div>
           </div>
         </div>

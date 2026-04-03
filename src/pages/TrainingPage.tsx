@@ -59,14 +59,19 @@ export function TrainingPage() {
   return (
     <PageWrapper className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold mb-2 flex items-center flex-wrap">
-            <Target className="w-6 h-6 sm:w-8 sm:h-8 mr-3 text-gold-champagne shrink-0" />
-            <span>CENTRO DE <span className="gold-text ml-2">ENTRENAMIENTO</span></span>
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 font-mono text-[10px] sm:text-xs md:text-sm uppercase tracking-widest">
-            Forjando la Excelencia del Staff Imperial
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gold-champagne shadow-[0_0_15px_rgba(212,175,55,0.3)] bg-black shrink-0">
+            <img src="https://e.top4top.io/p_372983lw41.jpg" alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          </div>
+          <div>
+            <h1 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold mb-1 flex items-center flex-wrap">
+              <Target className="w-6 h-6 sm:w-8 sm:h-8 mr-3 text-gold-champagne shrink-0" />
+              <span>CENTRO DE <span className="gold-text ml-2">ENTRENAMIENTO</span></span>
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 font-mono text-[10px] sm:text-xs md:text-sm uppercase tracking-widest">
+              Forjando la Excelencia del Staff Imperial
+            </p>
+          </div>
         </div>
         <div className="flex items-center space-x-2 bg-gold-champagne/10 text-gold-champagne px-4 py-2 rounded-full border border-gold-champagne/20">
           <Award className="w-4 h-4" />

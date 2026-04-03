@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { PremiumCard } from '../components/ui/PremiumCard';
 import { Button } from '../components/ui/Button';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
 import { useToastStore } from '../store/useToastStore';
-import { collection, onSnapshot, query, doc, updateDoc, where, getDocs } from 'firebase/firestore';
+import { CONFIG } from '../config';
+import { collection, onSnapshot, query, doc, updateDoc, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { handleFirestoreError, OperationType } from '../services/firestoreErrorHandler';
-import { Settings, Users, Shield, Database, Search, UserPlus, UserMinus, Check, AlertCircle } from 'lucide-react';
+import { Settings, Users, Shield, Database, Search, UserPlus, UserMinus, Check, AlertCircle, Upload, Download, FileJson, FileUp } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { GuestBlocker } from '../components/auth/GuestBlocker';
 
@@ -22,10 +23,27 @@ export function ConfigPage() {
   const [foundUser, setFoundUser] = useState<any>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  
+  // Menu JSON state
+  const [jsonInput, setJsonInput] = useState('');
+  const [jsonLoading, setJsonLoading] = useState(false);
+  const [currentMenuJson, setCurrentMenuJson] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Only allow creator or admins
-  const isCreator = user?.email === 'qmisael386@gmail.com' || profile?.email === 'qmisael386@gmail.com';
+  const isCreator = user?.email === CONFIG.creator.email || profile?.email === CONFIG.creator.email;
   const isAdmin = userRole === 'admin' || isCreator;
+
+  const fetchCurrentMenu = async () => {
+    try {
+      const menuSnapshot = await getDocs(collection(db, 'menu'));
+      const items = menuSnapshot.docs.map(doc => doc.data());
+      items.sort((a: any, b: any) => (a.order ?? 9999) - (b.order ?? 9999));
+      setCurrentMenuJson(JSON.stringify(items, null, 2));
+    } catch (error) {
+      console.error("Error fetching menu:", error);
+    }
+  };
 
   useEffect(() => {
     if (!isAdmin || !user) {
@@ -41,6 +59,9 @@ export function ConfigPage() {
       handleFirestoreError(error, OperationType.LIST, 'users');
       setLoading(false);
     });
+
+    // Fetch current menu to show in preview
+    fetchCurrentMenu();
 
     return () => unsubscribe();
   }, [isAdmin, user]);
@@ -70,7 +91,7 @@ export function ConfigPage() {
     const newRole = targetUser.role === 'admin' ? 'user' : 'admin';
     
     // Don't allow removing own admin role if you are the creator
-    if (targetUser.email === 'qmisael386@gmail.com' && newRole === 'user') {
+    if (targetUser.email === CONFIG.creator.email && newRole === 'user') {
       addToast('No puedes quitarle el poder al creador supremo.', 'error');
       return;
     }
@@ -86,6 +107,136 @@ export function ConfigPage() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        // Validate JSON
+        JSON.parse(content);
+        setJsonInput(content);
+        addToast('Archivo JSON cargado correctamente.', 'success');
+      } catch (error) {
+        addToast('El archivo no es un JSON válido.', 'error');
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset input so the same file can be uploaded again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleUploadMenuJson = async () => {
+    if (!jsonInput.trim()) {
+      addToast('Por favor, pega el JSON primero.', 'error');
+      return;
+    }
+
+    setJsonLoading(true);
+    try {
+      const parsedData = JSON.parse(jsonInput);
+      
+      if (!parsedData.categories || !Array.isArray(parsedData.categories)) {
+        throw new Error("El JSON debe tener una propiedad 'categories' que sea un array.");
+      }
+
+      // Flatten the hierarchical JSON into individual items
+      const itemsToUpload: any[] = [];
+      let orderIndex = 0;
+      
+      parsedData.categories.forEach((cat: any) => {
+        if (!cat.subcategories) return;
+        cat.subcategories.forEach((sub: any) => {
+          if (!sub.items) return;
+          sub.items.forEach((item: any) => {
+            itemsToUpload.push({
+              ...item,
+              category: cat.category,
+              subcategory: sub.subcategory,
+              common_description: sub.common_description || "",
+              order: orderIndex++
+            });
+          });
+        });
+      });
+
+      if (itemsToUpload.length === 0) {
+        throw new Error("No se encontraron items válidos en el JSON.");
+      }
+
+      // Delete existing menu items first (to avoid stale data)
+      const existingMenuSnapshot = await getDocs(collection(db, 'menu'));
+      
+      // We can only do 500 operations per batch. 
+      // If menu is larger, we'd need multiple batches, but for ~150 items, one is fine.
+      const batch = writeBatch(db);
+      
+      existingMenuSnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+
+      // Add new items
+      itemsToUpload.forEach(item => {
+        // Use code as document ID if available, otherwise auto-generate
+        const docRef = item.code ? doc(db, 'menu', item.code) : doc(collection(db, 'menu'));
+        batch.set(docRef, item);
+      });
+
+      await batch.commit();
+      
+      addToast(`Carta actualizada con éxito (${itemsToUpload.length} platos).`, 'success');
+      setJsonInput('');
+      
+      // Refresh preview
+      await fetchCurrentMenu();
+      
+    } catch (error: any) {
+      console.error('Error uploading menu JSON:', error);
+      addToast(`Error: ${error.message || 'JSON inválido'}`, 'error');
+    } finally {
+      setJsonLoading(false);
+    }
+  };
+
+  const handleDownloadJson = () => {
+    if (!currentMenuJson) return;
+    const blob = new Blob([currentMenuJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'menu_backup.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Helper to colorize JSON output
+  const colorizeJson = (jsonStr: string) => {
+    if (!jsonStr) return null;
+    const formatted = jsonStr.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+      let cls = 'text-blue-400'; // number
+      if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+              cls = 'text-pink-400 font-bold'; // key
+          } else {
+              cls = 'text-emerald-400'; // string
+          }
+      } else if (/true|false/.test(match)) {
+          cls = 'text-orange-400'; // boolean
+      } else if (/null/.test(match)) {
+          cls = 'text-gray-500'; // null
+      }
+      return '<span class="' + cls + '">' + match + '</span>';
+    });
+    return <pre className="text-[10px] sm:text-xs font-mono whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: formatted }} />;
   };
 
   if (!isAdmin) {
@@ -240,6 +391,95 @@ export function ConfigPage() {
           </div>
         </PremiumCard>
       </div>
+
+      {/* Menu Management Section */}
+      <PremiumCard className="p-6 md:p-8 mt-8 border-gold-champagne/30">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-heading text-lg md:text-xl font-bold flex items-center text-gold-champagne">
+            <FileJson className="w-5 h-5 mr-2" />
+            GESTIÓN DE CARTA DIGITAL
+          </h2>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Upload JSON */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white flex items-center">
+                <Upload className="w-4 h-4 mr-2 text-gray-400" />
+                Subir Nueva Carta
+              </h3>
+              
+              <div>
+                <input 
+                  type="file" 
+                  accept=".json" 
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  className="hidden" 
+                  id="json-upload"
+                />
+                <label htmlFor="json-upload">
+                  <Button 
+                    variant="outline"
+                    className="py-1 px-3 text-[10px] cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <FileUp className="w-3 h-3 mr-1" /> SUBIR ARCHIVO
+                  </Button>
+                </label>
+              </div>
+            </div>
+            
+            <p className="text-xs text-gray-400">
+              Sube un archivo .json o pega aquí la estructura con las categorías, subcategorías y platos. Al actualizar, se reemplazará la carta actual.
+            </p>
+            <textarea
+              value={jsonInput}
+              onChange={(e) => setJsonInput(e.target.value)}
+              placeholder='{\n  "categories": [\n    {\n      "category": "menu",\n      "subcategories": [...]\n    }\n  ]\n}'
+              className="w-full h-64 bg-black/40 border border-white/10 rounded-xl p-4 text-xs font-mono text-gray-300 focus:border-gold-champagne outline-none transition-all resize-none"
+            />
+            <Button 
+              onClick={handleUploadMenuJson} 
+              disabled={jsonLoading || !jsonInput.trim()}
+              className="w-full"
+            >
+              {jsonLoading ? 'ACTUALIZANDO...' : 'ACTUALIZAR BASE DE DATOS'}
+            </Button>
+          </div>
+
+          {/* Preview JSON */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white flex items-center">
+                <Database className="w-4 h-4 mr-2 text-gray-400" />
+                Datos Actuales (Firebase)
+              </h3>
+              <Button 
+                onClick={handleDownloadJson} 
+                disabled={!currentMenuJson}
+                variant="outline"
+                className="py-1 px-3 text-[10px]"
+              >
+                <Download className="w-3 h-3 mr-1" /> DESCARGAR
+              </Button>
+            </div>
+            <p className="text-xs text-gray-400">
+              Previsualización de los platos guardados en la base de datos, ordenados tal como se subieron.
+            </p>
+            <div className="w-full h-64 bg-[#0d1117] border border-white/10 rounded-xl p-4 overflow-auto custom-scrollbar">
+              {currentMenuJson ? (
+                colorizeJson(currentMenuJson)
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs italic">
+                  Cargando datos de la carta...
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </PremiumCard>
     </PageWrapper>
   );
 }

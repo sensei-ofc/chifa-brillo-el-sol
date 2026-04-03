@@ -209,8 +209,10 @@ export function ChatPage() {
   return (
     <PageWrapper className="h-[calc(100vh-11rem)] md:h-[calc(100vh-13rem)] flex flex-col -mx-4 -mt-4 md:-mx-6 md:-mt-6 lg:-mx-8 lg:-mt-8">
       <div className="px-4 py-3 border-b border-black/5 dark:border-white/10 bg-white/5 dark:bg-black/20 backdrop-blur-md flex items-center justify-between">
-        <div className="flex items-center">
-          <Bot className="w-6 h-6 mr-2 text-gold-champagne shrink-0" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full overflow-hidden border border-gold-champagne/30 bg-black shrink-0">
+            <img src="https://e.top4top.io/p_372983lw41.jpg" alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          </div>
           <div>
             <h1 className="font-heading text-sm md:text-base font-bold leading-none">
               MARLEY <span className="gold-text">IA</span>

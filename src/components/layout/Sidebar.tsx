@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useUIStore } from '../../store/useUIStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useAppStore } from '../../store/useAppStore';
+import { CONFIG } from '../../config';
 import { cn } from '../ui/Button';
 import { 
   LayoutDashboard, MessageSquare, Menu as MenuIcon, BookOpen, 
@@ -71,9 +72,12 @@ export function Sidebar() {
             <X className="w-5 h-5" />
           </button>
           <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-lg overflow-hidden border border-white/10">
-            <img src="https://e.top4top.io/p_372983lw41.jpg" alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            <img src={CONFIG.brand.logo} alt="Logo" className="w-full h-full object-cover" />
           </div>
-          <h1 className="font-heading text-xl font-bold text-center">CHIFA<br/><span className="gold-text">BRILLO EL SOL</span></h1>
+          <h1 className="font-heading text-xl font-bold text-center uppercase">
+            {CONFIG.brand.name.split(' ').slice(0, 1)}<br/>
+            <span className="gold-text">{CONFIG.brand.name.split(' ').slice(1).join(' ')}</span>
+          </h1>
         </div>
 
         <div className="py-4 px-3 space-y-1">

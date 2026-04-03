@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './services/firebase';
+import { CONFIG } from './config';
 import { useAuthStore } from './store/useAuthStore';
 import { useAppStore } from './store/useAppStore';
 import { useMenuStore } from './store/useMenuStore';
@@ -74,7 +75,7 @@ export default function App() {
           // Listen to user profile in real-time
           const userDocRef = doc(db, 'users', user.uid);
           unsubscribeProfile = onSnapshot(userDocRef, (userDoc) => {
-            const isCreator = user.email === 'qmisael386@gmail.com';
+            const isCreator = user.email === CONFIG.creator.email;
             
             if (userDoc.exists()) {
               const data = userDoc.data();
@@ -134,7 +135,7 @@ export default function App() {
             };
             console.error('Firestore Error Info:', JSON.stringify(errInfo));
             // Fallback to basic profile if Firestore fails
-            const isCreator = user.email === 'qmisael386@gmail.com';
+            const isCreator = user.email === CONFIG.creator.email;
             const fallbackRole = isCreator ? 'admin' : 'user';
             setUserRole(fallbackRole);
             setProfile({

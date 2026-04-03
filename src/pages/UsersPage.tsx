@@ -4,6 +4,7 @@ import { db } from '../services/firebase';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { useAuthStore } from '../store/useAuthStore';
 import { useToastStore } from '../store/useToastStore';
+import { CONFIG } from '../config';
 import { User as UserIcon, Mail, Shield, Calendar, Search, Edit2, Trash2, Plus, Minus, X, Check, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../components/ui/Button';
@@ -67,7 +68,7 @@ export function UsersPage() {
       setUsers([
         { uid: '1', displayName: 'Juan Pérez', email: 'juan@example.com', role: 'user', points: 150, rank: 'Guerrero', createdAt: new Date().toISOString() },
         { uid: '2', displayName: 'María García', email: 'maria@example.com', role: 'user', points: 300, rank: 'Maestro', createdAt: new Date().toISOString() },
-        { uid: '3', displayName: 'Creador (Admin)', email: 'qmisael386@gmail.com', role: 'admin', points: 9999, rank: 'Gran Maestro', createdAt: new Date().toISOString() },
+        { uid: '3', displayName: 'Creador (Admin)', email: CONFIG.creator.email, role: 'admin', points: 9999, rank: 'Gran Maestro', createdAt: new Date().toISOString() },
       ]);
       setLoading(false);
     });
@@ -189,9 +190,9 @@ export function UsersPage() {
                       {u.displayName || 'Usuario sin nombre'}
                     </h3>
                     <span className={`text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                      u.role === 'admin' ? 'bg-gold-champagne/20 text-gold-champagne' : 'bg-blue-500/20 text-blue-400'
+                      u.email === CONFIG.creator.email ? 'bg-gold-champagne/20 text-gold-champagne' : (u.role === 'admin' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-400')
                     }`}>
-                      {u.role}
+                      {u.email === CONFIG.creator.email ? 'CREADOR' : (u.role === 'admin' ? 'ADMIN' : 'USER')}
                     </span>
                   </div>
                 </div>

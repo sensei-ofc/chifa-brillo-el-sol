@@ -1,38 +1,51 @@
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { PremiumCard } from '../components/ui/PremiumCard';
-import { Info, HelpCircle, Code, ShieldCheck, Mail, BookOpen, MessageSquare, Utensils, LayoutDashboard, Instagram, Phone } from 'lucide-react';
+import { CONFIG } from '../config';
+import { Info, HelpCircle, Code, ShieldCheck, Mail, BookOpen, MessageSquare, Utensils, LayoutDashboard, Instagram, Phone, Trophy, Award, IdCard, Share2, Download, GraduationCap } from 'lucide-react';
 
 export function InfoPage() {
-  const version = "2.5.0 (Build 2026.03)";
-  const creator = "Erik Misael";
-  const instagram = "https://www.instagram.com/erik_16_qm?igsh=YzNyZnptMW1tNWw=";
-  const email = "qmisael386@gmail.com";
-  const phone = "51916738232";
+  const version = CONFIG.app.version;
+  const creator = CONFIG.creator.name;
+  const instagram = CONFIG.social.instagram;
+  const email = CONFIG.creator.email;
+  const phone = CONFIG.contact.phone.replace(/\D/g, '');
 
   const faqs = [
     {
-      question: "¿Cómo actualizo la Carta Digital?",
-      answer: "La Carta Digital se sincroniza automáticamente con la base de datos central. Si realizaste un cambio reciente en el sistema de Google Sheets, simplemente ve a la sección 'Carta Digital' y presiona el botón 'Sincronizar'."
+      question: "¿Cómo funciona el sistema de Gamificación?",
+      answer: "A medida que interactúas con la plataforma y completas evaluaciones, acumulas puntos de experiencia (XP). Estos puntos te permiten subir de rango, desde 'Novato' hasta 'Leyenda Imperial', desbloqueando logros exclusivos."
     },
     {
-      question: "¿Quién puede añadir nuevos usuarios administradores?",
-      answer: "Solo el Creador Supremo y los Administradores autorizados pueden gestionar los permisos de otros usuarios desde la pestaña 'Configuración'."
+      question: "¿Para qué sirve mi Credencial Digital?",
+      answer: "Tu Credencial Digital es tu identificación oficial dentro del Chifa Brillo El Sol. Muestra tu rango actual, puntos y rol. Puedes descargarla como imagen o compartirla directamente desde tu Perfil."
+    },
+    {
+      question: "¿Cómo actualizo la Carta Digital?",
+      answer: "La Carta Digital se gestiona desde el módulo 'Menú'. Los administradores pueden añadir, editar o eliminar platos y categorías en tiempo real, y los cambios se reflejarán instantáneamente para todo el personal."
     },
     {
       question: "¿Qué es Marley IA?",
       answer: "Marley IA es tu asistente inteligente integrado. Puedes preguntarle sobre recetas, gestión del restaurante, atención al cliente o cualquier duda operativa del Chifa Brillo El Sol."
     },
     {
-      question: "¿Cómo funciona el sistema de puntos y rangos?",
-      answer: "A medida que interactúas con la plataforma, completas evaluaciones y ayudas en la gestión, acumulas puntos de experiencia (XP) que te permitirán subir de rango, desde 'Aprendiz' hasta 'Gran Maestro'."
+      question: "¿Cómo puedo obtener más puntos XP?",
+      answer: "Participando activamente en el módulo de 'Capacitación', completando los quizzes de conocimiento sobre el menú y las operaciones del restaurante con la mayor puntuación posible."
     }
   ];
 
   const features = [
     { icon: LayoutDashboard, title: "Dashboard", desc: "Vista general de tu perfil, estadísticas y accesos rápidos." },
-    { icon: MessageSquare, title: "Marley IA", desc: "Asistente virtual para resolver dudas operativas al instante." },
+    { icon: IdCard, title: "Perfil y Credencial", desc: "Gestiona tu información y obtén tu credencial digital descargable." },
+    { icon: GraduationCap, title: "Capacitación", desc: "Módulo de aprendizaje interactivo con quizzes y recompensas (XP)." },
     { icon: Utensils, title: "Carta Digital", desc: "Catálogo completo y actualizado de todos los platos y combos." },
+    { icon: MessageSquare, title: "Marley IA", desc: "Asistente virtual para resolver dudas operativas al instante." },
     { icon: BookOpen, title: "Diccionario", desc: "Glosario de términos culinarios y operativos del restaurante." }
+  ];
+
+  const gamificationInfo = [
+    { icon: Trophy, title: "Sistema de Rangos", desc: "Progresa a través de múltiples niveles basados en tu experiencia y conocimiento." },
+    { icon: Award, title: "Logros Desbloqueables", desc: "Obtén medallas especiales por hitos como 'Primera Evaluación' o 'Racha Perfecta'." },
+    { icon: Share2, title: "Comparte tu Éxito", desc: "Exporta tu credencial con tu rango actual y compártela con tus compañeros." }
   ];
 
   return (
@@ -47,9 +60,9 @@ export function InfoPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Left Column - About & Contact */}
-        <div className="space-y-6 lg:col-span-1">
+        <div className="space-y-6 xl:col-span-1">
           <PremiumCard className="p-6">
             <div className="flex items-center mb-4">
               <Code className="w-5 h-5 text-dragon-red mr-2" />
@@ -57,7 +70,7 @@ export function InfoPage() {
             </div>
             <div className="space-y-4 text-sm text-gray-300">
               <p>
-                Plataforma de gestión integral diseñada exclusivamente para el 
+                Plataforma de gestión integral y gamificada diseñada exclusivamente para el 
                 <strong className="text-gold-champagne"> Chifa Brillo El Sol</strong>. 
                 Optimiza la atención, capacita al personal y centraliza la información.
               </p>
@@ -139,7 +152,30 @@ export function InfoPage() {
         </div>
 
         {/* Right Column - Guide & FAQ */}
-        <div className="space-y-6 lg:col-span-2">
+        <div className="space-y-6 xl:col-span-2">
+          
+          {/* Gamification Section */}
+          <PremiumCard className="p-6 border-gold-champagne/30">
+            <div className="flex items-center mb-6">
+              <Trophy className="w-6 h-6 text-gold-champagne mr-2" />
+              <h2 className="font-heading font-bold text-xl text-gold-champagne">Novedades: Gamificación y Credenciales</h2>
+            </div>
+            <p className="text-sm text-gray-300 mb-6">
+              El sistema ahora incluye un completo motor de gamificación para premiar tu esfuerzo y conocimiento.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {gamificationInfo.map((info, idx) => (
+                <div key={idx} className="bg-black/40 border border-gold-champagne/20 p-4 rounded-xl flex flex-col items-center text-center hover:border-gold-champagne/50 transition-colors">
+                  <div className="bg-gold-champagne/10 p-3 rounded-full mb-3">
+                    <info.icon className="w-6 h-6 text-gold-champagne" />
+                  </div>
+                  <h3 className="font-bold text-sm text-white mb-2">{info.title}</h3>
+                  <p className="text-xs text-gray-400 leading-relaxed">{info.desc}</p>
+                </div>
+              ))}
+            </div>
+          </PremiumCard>
+
           <PremiumCard className="p-6">
             <div className="flex items-center mb-6">
               <BookOpen className="w-5 h-5 text-dragon-red mr-2" />
@@ -147,7 +183,7 @@ export function InfoPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {features.map((feat, idx) => (
-                <div key={idx} className="bg-white/5 border border-white/10 p-4 rounded-xl flex items-start">
+                <div key={idx} className="bg-white/5 border border-white/10 p-4 rounded-xl flex items-start hover:bg-white/10 transition-colors">
                   <div className="bg-black/30 p-2 rounded-lg mr-3 shrink-0">
                     <feat.icon className="w-5 h-5 text-gold-champagne" />
                   </div>
@@ -167,7 +203,7 @@ export function InfoPage() {
             </div>
             <div className="space-y-4">
               {faqs.map((faq, idx) => (
-                <div key={idx} className="bg-white/5 border border-white/10 p-4 rounded-xl">
+                <div key={idx} className="bg-white/5 border border-white/10 p-4 rounded-xl hover:border-white/20 transition-colors">
                   <h3 className="font-bold text-sm text-gold-champagne mb-2">{faq.question}</h3>
                   <p className="text-sm text-gray-300 leading-relaxed">{faq.answer}</p>
                 </div>
