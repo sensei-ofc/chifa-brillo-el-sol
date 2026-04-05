@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { PremiumCard } from '../components/ui/PremiumCard';
-import { Button } from '../components/ui/Button';
+import { Button, cn } from '../components/ui/Button';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
 import { CONFIG } from '../config';
 import { Trophy, Star, Clock, BookOpen, User } from 'lucide-react';
+import { Skeleton } from '../components/ui/Skeleton';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { RANKS, getRankByPoints } from '../constants/gameData';
@@ -16,9 +17,13 @@ export function DashboardPage() {
   const { user, userRole } = useAuthStore();
   const { profile } = useAppStore();
   const [topUsers, setTopUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const q = query(collection(db, 'users'), orderBy('points', 'desc'), limit(5));
     
@@ -28,8 +33,10 @@ export function DashboardPage() {
         ...doc.data()
       }));
       setTopUsers(usersData);
+      setLoading(false);
     }, (error) => {
       console.error('Error fetching top users:', error);
+      setLoading(false);
       // Handle Firestore error as per instructions
       const errInfo = {
         error: error.message,
@@ -101,45 +108,26 @@ export function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <PremiumCard className="flex items-center p-4 sm:p-6 space-x-4">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gold-champagne/20 rounded-xl flex items-center justify-center text-gold-champagne">
-            <Trophy className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-          <div>
-            <p className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Rango Actual</p>
-            <p className="text-xl sm:text-2xl font-bold font-heading">{profile?.rank || 'Aprendiz'}</p>
-          </div>
-        </PremiumCard>
-
-        <PremiumCard className="flex items-center p-4 sm:p-6 space-x-4">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-dragon-red/20 rounded-xl flex items-center justify-center text-dragon-red">
-            <Star className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-          <div>
-            <p className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Puntos Totales</p>
-            <p className="text-xl sm:text-2xl font-bold font-mono">{profile?.points || 0} <span className="text-[10px] sm:text-sm text-gray-400">PTS</span></p>
-          </div>
-        </PremiumCard>
-
-        <PremiumCard className="flex items-center p-4 sm:p-6 space-x-4">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-500">
-            <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-          <div>
-            <p className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Exámenes</p>
-            <p className="text-xl sm:text-2xl font-bold font-mono">{profile?.examsCompleted || 0}</p>
-          </div>
-        </PremiumCard>
-
-        <PremiumCard className="flex items-center p-4 sm:p-6 space-x-4">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500/20 rounded-xl flex items-center justify-center text-purple-500">
-            <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-          <div>
-            <p className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Precisión</p>
-            <p className="text-xl sm:text-2xl font-bold font-mono">{profile?.accuracy || 0}%</p>
-          </div>
-        </PremiumCard>
+        {[
+          { icon: Trophy, label: 'Rango Actual', value: profile?.rank || 'Aprendiz', color: 'text-gold-champagne', bgColor: 'bg-gold-champagne/20' },
+          { icon: Star, label: 'Puntos Totales', value: `${profile?.points || 0} PTS`, color: 'text-dragon-red', bgColor: 'bg-dragon-red/20' },
+          { icon: BookOpen, label: 'Exámenes', value: profile?.examsCompleted || 0, color: 'text-blue-500', bgColor: 'bg-blue-500/20' },
+          { icon: Clock, label: 'Precisión', value: `${profile?.accuracy || 0}%`, color: 'text-purple-500', bgColor: 'bg-purple-500/20' }
+        ].map((stat, i) => (
+          <PremiumCard key={i} className="flex items-center p-4 sm:p-6 space-x-4">
+            <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center", stat.color, stat.bgColor)}>
+              <stat.icon className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div className="flex-grow">
+              <p className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">{stat.label}</p>
+              {loading && !profile ? (
+                <Skeleton className="h-6 w-20 mt-1" />
+              ) : (
+                <p className={cn("text-xl sm:text-2xl font-bold", i === 0 ? "font-heading" : "font-mono")}>{stat.value}</p>
+              )}
+            </div>
+          </PremiumCard>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
@@ -152,39 +140,58 @@ export function DashboardPage() {
               </h2>
             </div>
             <div className="flex items-end justify-center space-x-2 sm:space-x-4 h-56 sm:h-64 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0 hide-scrollbar">
-              {topUsers.length > 1 && (
-                <div className="flex flex-col items-center min-w-[70px] sm:min-w-[80px]">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 rounded-full bg-gray-200 border-2 sm:border-4 border-gray-300 mb-2 flex items-center justify-center overflow-hidden">
-                    {topUsers[1]?.photoURL ? <img src={topUsers[1].photoURL} alt="" className="w-full h-full object-cover" /> : <User className="text-gray-400" />}
+              {loading ? (
+                [...Array(3)].map((_, i) => (
+                  <div key={i} className="flex flex-col items-center min-w-[70px] sm:min-w-[80px]">
+                    <Skeleton className={cn(
+                      "rounded-full mb-2",
+                      i === 1 ? "w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20" : "w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16"
+                    )} />
+                    <Skeleton className="h-3 w-12 mb-1" />
+                    <Skeleton className="h-2 w-8" />
+                    <Skeleton className={cn(
+                      "rounded-t-lg mt-2",
+                      i === 1 ? "w-18 h-20 sm:w-20 sm:h-24 md:w-28 md:h-32" : "w-14 h-14 sm:w-16 sm:h-16 md:w-24 md:h-24"
+                    )} />
                   </div>
-                  <p className="font-bold text-[10px] sm:text-xs md:text-base truncate max-w-full px-1">{topUsers[1]?.displayName?.split(' ')[0]}</p>
-                  <p className="text-[8px] sm:text-[10px] text-gray-500 font-mono">{topUsers[1]?.points} PTS</p>
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-24 md:h-24 bg-gray-200 dark:bg-gray-800 rounded-t-lg mt-2 flex items-center justify-center font-bold text-sm sm:text-lg md:text-xl">2º</div>
-                </div>
-              )}
-              {topUsers.length > 0 && (
-                <div className="flex flex-col items-center min-w-[90px] sm:min-w-[100px]">
-                  <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-gold-champagne mb-1 sm:mb-2">👑</div>
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full bg-gold-champagne/20 border-2 sm:border-4 border-gold-champagne mb-2 flex items-center justify-center overflow-hidden">
-                    {topUsers[0]?.photoURL ? <img src={topUsers[0].photoURL} alt="" className="w-full h-full object-cover" /> : <User className="text-gold-champagne" />}
-                  </div>
-                  <p className="font-bold text-xs sm:text-sm md:text-base truncate max-w-full px-1">{topUsers[0]?.displayName?.split(' ')[0]}</p>
-                  <p className="text-[8px] sm:text-[10px] md:text-xs text-gold-champagne font-mono">{topUsers[0]?.points} PTS</p>
-                  <div className="w-18 h-20 sm:w-20 sm:h-24 md:w-28 md:h-32 bg-gold-champagne/10 dark:bg-gold-champagne/20 border border-gold-champagne/30 rounded-t-lg mt-2 flex items-center justify-center font-bold text-lg sm:text-xl md:text-2xl text-gold-champagne">1º</div>
-                </div>
-              )}
-              {topUsers.length > 2 && (
-                <div className="flex flex-col items-center min-w-[70px] sm:min-w-[80px]">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 rounded-full bg-orange-200 border-2 sm:border-4 border-orange-400 mb-2 flex items-center justify-center overflow-hidden">
-                    {topUsers[2]?.photoURL ? <img src={topUsers[2].photoURL} alt="" className="w-full h-full object-cover" /> : <User className="text-orange-500" />}
-                  </div>
-                  <p className="font-bold text-[10px] sm:text-xs md:text-base truncate max-w-full px-1">{topUsers[2]?.displayName?.split(' ')[0]}</p>
-                  <p className="text-[8px] sm:text-[10px] text-orange-400 font-mono">{topUsers[2]?.points} PTS</p>
-                  <div className="w-14 h-10 sm:w-16 sm:h-12 md:w-24 md:h-20 bg-orange-100 dark:bg-orange-900/30 rounded-t-lg mt-2 flex items-center justify-center font-bold text-sm sm:text-lg md:text-xl text-orange-500">3º</div>
-                </div>
-              )}
-              {topUsers.length === 0 && (
-                <div className="text-gray-500 font-mono text-sm py-10">CARGANDO RANKING...</div>
+                ))
+              ) : (
+                <>
+                  {topUsers.length > 1 && (
+                    <div className="flex flex-col items-center min-w-[70px] sm:min-w-[80px]">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 rounded-full bg-gray-200 border-2 sm:border-4 border-gray-300 mb-2 flex items-center justify-center overflow-hidden">
+                        {topUsers[1]?.photoURL ? <img src={topUsers[1].photoURL} alt="" className="w-full h-full object-cover" /> : <User className="text-gray-400" />}
+                      </div>
+                      <p className="font-bold text-[10px] sm:text-xs md:text-base truncate max-w-full px-1">{topUsers[1]?.displayName?.split(' ')[0]}</p>
+                      <p className="text-[8px] sm:text-[10px] text-gray-500 font-mono">{topUsers[1]?.points} PTS</p>
+                      <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-24 md:h-24 bg-gray-200 dark:bg-gray-800 rounded-t-lg mt-2 flex items-center justify-center font-bold text-sm sm:text-lg md:text-xl">2º</div>
+                    </div>
+                  )}
+                  {topUsers.length > 0 && (
+                    <div className="flex flex-col items-center min-w-[90px] sm:min-w-[100px]">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-gold-champagne mb-1 sm:mb-2">👑</div>
+                      <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full bg-gold-champagne/20 border-2 sm:border-4 border-gold-champagne mb-2 flex items-center justify-center overflow-hidden">
+                        {topUsers[0]?.photoURL ? <img src={topUsers[0].photoURL} alt="" className="w-full h-full object-cover" /> : <User className="text-gold-champagne" />}
+                      </div>
+                      <p className="font-bold text-xs sm:text-sm md:text-base truncate max-w-full px-1">{topUsers[0]?.displayName?.split(' ')[0]}</p>
+                      <p className="text-[8px] sm:text-[10px] md:text-xs text-gold-champagne font-mono">{topUsers[0]?.points} PTS</p>
+                      <div className="w-18 h-20 sm:w-20 sm:h-24 md:w-28 md:h-32 bg-gold-champagne/10 dark:bg-gold-champagne/20 border border-gold-champagne/30 rounded-t-lg mt-2 flex items-center justify-center font-bold text-lg sm:text-xl md:text-2xl text-gold-champagne">1º</div>
+                    </div>
+                  )}
+                  {topUsers.length > 2 && (
+                    <div className="flex flex-col items-center min-w-[70px] sm:min-w-[80px]">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 rounded-full bg-orange-200 border-2 sm:border-4 border-orange-400 mb-2 flex items-center justify-center overflow-hidden">
+                        {topUsers[2]?.photoURL ? <img src={topUsers[2].photoURL} alt="" className="w-full h-full object-cover" /> : <User className="text-orange-500" />}
+                      </div>
+                      <p className="font-bold text-[10px] sm:text-xs md:text-base truncate max-w-full px-1">{topUsers[2]?.displayName?.split(' ')[0]}</p>
+                      <p className="text-[8px] sm:text-[10px] text-orange-400 font-mono">{topUsers[2]?.points} PTS</p>
+                      <div className="w-14 h-10 sm:w-16 sm:h-12 md:w-24 md:h-20 bg-orange-100 dark:bg-orange-900/30 rounded-t-lg mt-2 flex items-center justify-center font-bold text-sm sm:text-lg md:text-xl text-orange-500">3º</div>
+                    </div>
+                  )}
+                  {topUsers.length === 0 && (
+                    <div className="text-gray-500 font-mono text-sm py-10">NO HAY DATOS DISPONIBLES.</div>
+                  )}
+                </>
               )}
             </div>
           </PremiumCard>

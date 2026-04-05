@@ -4,6 +4,7 @@ import { PremiumCard } from '../components/ui/PremiumCard';
 import { Button, cn } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Search, Utensils, RefreshCw, Info, LayoutGrid, List, Edit2, Save, X, AlertCircle } from 'lucide-react';
+import { Skeleton } from '../components/ui/Skeleton';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
 import { useToastStore } from '../store/useToastStore';
@@ -249,8 +250,34 @@ export function MenuPage() {
         </div>
 
         {isLoading ? (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400 font-mono text-sm">
-            CARGANDO MENÚ IMPERIAL...
+          <div className={cn(
+            "gap-4 sm:gap-6",
+            viewMode === 'grid' 
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" 
+              : "flex flex-col space-y-4"
+          )}>
+            {[...Array(8)].map((_, i) => (
+              <div 
+                key={i} 
+                className={cn(
+                  "rounded-2xl border border-black/5 dark:border-white/10 flex",
+                  viewMode === 'grid' ? "flex-col" : "flex-row items-stretch h-40"
+                )}
+              >
+                <Skeleton className={cn(
+                  viewMode === 'grid' ? "aspect-video w-full rounded-b-none" : "w-28 sm:w-48 h-full rounded-r-none"
+                )} />
+                <div className="p-4 flex-grow space-y-3">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-3 w-12" />
+                  </div>
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400 font-mono text-sm">

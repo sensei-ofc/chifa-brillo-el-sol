@@ -10,6 +10,7 @@ import { collection, onSnapshot, query, doc, updateDoc, where, getDocs, writeBat
 import { db } from '../services/firebase';
 import { handleFirestoreError, OperationType } from '../services/firestoreErrorHandler';
 import { Settings, Users, Shield, Database, Search, UserPlus, UserMinus, Check, AlertCircle, Upload, Download, FileJson, FileUp } from 'lucide-react';
+import { Skeleton } from '../components/ui/Skeleton';
 import { Navigate } from 'react-router-dom';
 import { GuestBlocker } from '../components/auth/GuestBlocker';
 
@@ -269,7 +270,11 @@ export function ConfigPage() {
           </div>
           <div>
             <p className="text-[10px] md:text-sm text-gray-500 dark:text-gray-400 font-medium">Usuarios Registrados</p>
-            <p className="text-xl md:text-2xl font-bold font-mono">{loading ? '...' : userCount}</p>
+            {loading ? (
+              <Skeleton className="h-6 w-12 mt-1" />
+            ) : (
+              <p className="text-xl md:text-2xl font-bold font-mono">{userCount}</p>
+            )}
           </div>
         </PremiumCard>
 

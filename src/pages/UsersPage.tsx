@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useToastStore } from '../store/useToastStore';
 import { CONFIG } from '../config';
 import { User as UserIcon, Mail, Shield, Calendar, Search, Edit2, Trash2, Plus, Minus, X, Check, Award } from 'lucide-react';
+import { Skeleton } from '../components/ui/Skeleton';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../components/ui/Button';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -167,8 +168,26 @@ export function UsersPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="w-10 h-10 border-4 border-gold-champagne border-t-transparent rounded-full animate-spin"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center space-x-4">
+                <Skeleton className="w-12 h-12 rounded-full" />
+                <div className="space-y-2 flex-grow">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/4" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+              <div className="pt-4 border-t border-white/5 flex justify-between items-center">
+                <Skeleton className="h-6 w-16" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

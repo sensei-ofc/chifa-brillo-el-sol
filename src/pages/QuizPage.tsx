@@ -10,6 +10,7 @@ import { useToastStore } from '../store/useToastStore';
 import { getRankByPoints, ACHIEVEMENTS, Question } from '../constants/gameData';
 import { fetchQuizQuestions, QuizCategory } from '../services/quizService';
 import { Trophy, CheckCircle2, XCircle, Brain, ArrowRight, RotateCcw, Timer } from 'lucide-react';
+import { Skeleton } from '../components/ui/Skeleton';
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -253,11 +254,26 @@ export function QuizPage() {
 
   if (loading) {
     return (
-      <PageWrapper className="flex flex-col items-center justify-center min-h-[70vh]">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-12 h-12 border-4 border-gold-champagne border-t-transparent rounded-full animate-spin"></div>
-          <p className="font-mono text-xs uppercase tracking-widest text-gray-500">Preparando Evaluación Imperial...</p>
+      <PageWrapper className="max-w-3xl mx-auto space-y-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Skeleton className="w-12 h-12 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          </div>
+          <Skeleton className="h-10 w-20 rounded-xl" />
         </div>
+        <Skeleton className="h-2 w-full rounded-full" />
+        <PremiumCard className="p-10 space-y-8">
+          <Skeleton className="h-12 w-3/4 mx-auto" />
+          <div className="space-y-4">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+            ))}
+          </div>
+        </PremiumCard>
       </PageWrapper>
     );
   }
