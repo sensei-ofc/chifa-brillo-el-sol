@@ -7,6 +7,7 @@ import { Send, Bot, User } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 import { useAuthStore } from '../store/useAuthStore';
 import { useMenuStore } from '../store/useMenuStore';
+import { MANUALS } from '../constants/manuals';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { GuestBlocker } from '../components/auth/GuestBlocker';
@@ -50,29 +51,36 @@ export function ChatPage() {
 
   useEffect(() => {
     if (menuData.length > 0 && !chatRef.current) {
-      const menuContext = menuData.map(item => 
-        `- ${item.name} (${item.category}${item.subCategory ? ` - ${item.subCategory}` : ''}): ${item.description}. Precio: S/ ${item.price}. ${item.flavor ? `Sabor: ${item.flavor}` : ''}`
-      ).join('\n');
+      const menuJsonContext = JSON.stringify(menuData, null, 2);
+      const manualsContext = MANUALS.map(m => `### ${m.title} (${m.category})\n${m.content}`).join('\n\n');
 
-      chatRef.current = ai.chats.create({
-        model: 'gemini-3.1-flash-lite-preview',
-        config: {
-          systemInstruction: `Eres Marley, un asistente experto en cocina Chifa (fusión peruano-china) y específicamente del restaurante "Chifa Brillo El Sol". 
+      const systemInstruction = `Eres Marley, un asistente experto en cocina Chifa (fusión peruano-china) y específicamente del restaurante "Chifa Brillo El Sol". 
           
-          CONOCIMIENTO DEL MENÚ:
-          Tienes acceso a la carta real del restaurante:
-          ${menuContext}
+          CONOCIMIENTO VIVO (BASE DE DATOS REAL):
+          Tienes acceso a la carta actual en formato JSON:
+          \`\`\`json
+          ${menuJsonContext}
+          \`\`\`
+          
+          MANUALES DE PROCEDIMIENTOS Y PROTOCOLOS:
+          ${manualsContext}
           
           REGLAS DE RESPUESTA:
           1. Usa un tono profesional, amable y servicial, como un anfitrión de alta gama.
           2. Responde SIEMPRE en formato Markdown atractivo.
           3. Usa negritas (**), cursivas (*), listas y tablas cuando sea apropiado.
           4. Si te piden una tabla de platos, genérala en Markdown.
-          5. Sé preciso con los precios y descripciones de los platos.
-          6. No inventes platos que no estén en la lista proporcionada.
-          7. Si no sabes algo, admítelo con elegancia.
-          8. Usa emojis relacionados con la cultura china y peruana (🐉, 🥟, 🍚, 🇵🇪, 🇨🇳).
-          9. NO menciones términos del "Diccionario" a menos que el usuario los use primero (mantén el foco en el menú y atención).`,
+          5. Sé preciso con los precios, códigos y descripciones de los platos.
+          6. Si te preguntan por alérgenos, busca en la descripción o usa el manual de "Manejo de Alergias".
+          7. No inventes platos que no estén en el JSON proporcionado.
+          8. Si no sabes algo, admítelo con elegancia.
+          9. Usa emojis relacionados con la cultura china y peruana (🐉, 🥟, 🍚, 🇵🇪, 🇨🇳).
+          10. Mantén el foco en el menú, protocolos de atención y cultura del restaurante.`;
+
+      chatRef.current = ai.chats.create({
+        model: 'gemini-3.1-flash-lite-preview',
+        config: {
+          systemInstruction,
         }
       });
     }
@@ -94,22 +102,31 @@ export function ChatPage() {
     setInput('');
     setIsLoading(true);
 
+    const menuJsonContext = JSON.stringify(menuData, null, 2);
+    const manualsContext = MANUALS.map(m => `### ${m.title} (${m.category})\n${m.content}`).join('\n\n');
+
     const systemInstruction = `Eres Marley, un asistente experto en cocina Chifa (fusión peruano-china) y específicamente del restaurante "Chifa Brillo El Sol". 
           
-          CONOCIMIENTO DEL MENÚ:
-          Tienes acceso a la carta real del restaurante:
-          ${menuData.map(item => `- ${item.name} (${item.category}${item.subCategory ? ` - ${item.subCategory}` : ''}): ${item.description}. Precio: S/ ${item.price}. ${item.flavor ? `Sabor: ${item.flavor}` : ''}`).join('\n')}
+          CONOCIMIENTO VIVO (BASE DE DATOS REAL):
+          Tienes acceso a la carta actual en formato JSON:
+          \`\`\`json
+          ${menuJsonContext}
+          \`\`\`
+          
+          MANUALES DE PROCEDIMIENTOS Y PROTOCOLOS:
+          ${manualsContext}
           
           REGLAS DE RESPUESTA:
           1. Usa un tono profesional, amable y servicial, como un anfitrión de alta gama.
           2. Responde SIEMPRE en formato Markdown atractivo.
           3. Usa negritas (**), cursivas (*), listas y tablas cuando sea apropiado.
           4. Si te piden una tabla de platos, genérala en Markdown.
-          5. Sé preciso con los precios y descripciones de los platos.
-          6. No inventes platos que no estén en la lista proporcionada.
-          7. Si no sabes algo, admítelo con elegancia.
-          8. Usa emojis relacionados con la cultura china y peruana (🐉, 🥟, 🍚, 🇵🇪, 🇨🇳).
-          9. NO menciones términos del "Diccionario" a menos que el usuario los use primero (mantén el foco en el menú y atención).`;
+          5. Sé preciso con los precios, códigos y descripciones de los platos.
+          6. Si te preguntan por alérgenos, busca en la descripción o usa el manual de "Manejo de Alergias".
+          7. No inventes platos que no estén en el JSON proporcionado.
+          8. Si no sabes algo, admítelo con elegancia.
+          9. Usa emojis relacionados con la cultura china y peruana (🐉, 🥟, 🍚, 🇵🇪, 🇨🇳).
+          10. Mantén el foco en el menú, protocolos de atención y cultura del restaurante.`;
 
     try {
       // Primary: Gemini
